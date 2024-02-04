@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/SawitProRecruitment/UserService/generated"
-	"github.com/SawitProRecruitment/UserService/handler"
-	"github.com/SawitProRecruitment/UserService/repository"
+	"github.com/hansengotama/sawitpro/generated"
+	"github.com/hansengotama/sawitpro/handler"
+	"github.com/hansengotama/sawitpro/repository"
 
 	"github.com/labstack/echo/v4"
 )

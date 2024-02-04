@@ -4,18 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/SawitProRecruitment/UserService/repository"
-	"github.com/SawitProRecruitment/UserService/utlis/jwtutils"
-	"github.com/SawitProRecruitment/UserService/utlis/passwordutils"
-	"github.com/SawitProRecruitment/UserService/utlis/validatorutlis"
 	"github.com/google/uuid"
+	"github.com/hansengotama/sawitpro/repository"
+	"github.com/hansengotama/sawitpro/utlis/jwtutils"
+	"github.com/hansengotama/sawitpro/utlis/passwordutils"
+	"github.com/hansengotama/sawitpro/utlis/validatorutlis"
 	"io"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/SawitProRecruitment/UserService/generated"
+	"github.com/hansengotama/sawitpro/generated"
 	"github.com/labstack/echo/v4"
 )
 
@@ -48,7 +47,6 @@ func (s *Server) getUserIdByAccessToken(ctx context.Context, tokenWithBearer str
 func (s *Server) GetUser(ctx echo.Context, param generated.GetUserParams) error {
 	userId, resErr := s.getUserIdByAccessToken(ctx.Request().Context(), param.Authorization)
 	if resErr != nil {
-		fmt.Println(resErr)
 		return ctx.JSON(http.StatusForbidden, resErr)
 	}
 

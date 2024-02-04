@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/SawitProRecruitment/UserService/generated"
-	"github.com/SawitProRecruitment/UserService/repository"
-	"github.com/SawitProRecruitment/UserService/utlis/passwordutils"
-	"github.com/SawitProRecruitment/UserService/utlis/validatorutlis"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/hansengotama/sawitpro/generated"
+	"github.com/hansengotama/sawitpro/repository"
+	"github.com/hansengotama/sawitpro/utlis/passwordutils"
+	"github.com/hansengotama/sawitpro/utlis/validatorutlis"
 	"github.com/labstack/echo/v4"
+	"github.com/procodr/monkey"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -431,7 +432,7 @@ func Test_UpdateUser(t *testing.T) {
 			},
 		},
 		{
-			name: "when failed update user on error conflict UpdateUserByUserId repo function",
+			name: "when failed update user on error conflict phone number UpdateUserByUserId repo function",
 			mock: func() {
 				mockRepo.
 					EXPECT().
@@ -527,22 +528,61 @@ func Test_CreateUser(t *testing.T) {
 		Repository: mockRepo,
 	})
 
+	var patchGeneratePasswordSalt *monkey.PatchGuard
+	var patchHashPassword *monkey.PatchGuard
+
+	defer func() {
+		if patchGeneratePasswordSalt != nil {
+			patchGeneratePasswordSalt.Unpatch()
+		}
+
+		if patchHashPassword != nil {
+			patchGeneratePasswordSalt.Unpatch()
+		}
+	}()
+
 	userId := uuid.New()
 
 	testCases := []struct {
 		name               string
-		mock               func()
+		before             func()
 		httpReq            *http.Request
 		expectedStatusCode int
 		expectedResponse   any
 	}{
 		{
 			name: "when successfully create user",
-			mock: func() {
-				patch := monkey.Patch(passwordutils.GeneratePasswordSalt, func() (int, error) {
-					return 0, errors.New("mocked error")
+			before: func() {
+				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+					return "password_salt", nil
 				})
 
+				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+					return "password_hash", nil
+				})
+
+				mockRepo.
+					EXPECT().
+					CreateUser(
+						context.Background(),
+						repository.CreateUserInput{
+							FullName:     "Hansen",
+							PhoneNumber:  "+628111814032",
+							PasswordHash: "password_hash",
+							PasswordSalt: "password_salt",
+						},
+					).
+					Return(nil).
+					Times(1)
+
+				mockRepo.
+					EXPECT().
+					GetUserIdByPhoneNumber(
+						context.Background(),
+						"+628111814032",
+					).
+					Return(userId, nil).
+					Times(1)
 			},
 			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "Hansen", "phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
 			expectedStatusCode: http.StatusCreated,
@@ -550,12 +590,206 @@ func Test_CreateUser(t *testing.T) {
 				Id: userId.String(),
 			},
 		},
+		{
+			name:               "when failed create user on read request body",
+			before:             nil,
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", &errorReaderCloser{}),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: validatorutlis.ErrReadRequestBody,
+			},
+		},
+		{
+			name:               "when failed create user on parse request body",
+			before:             nil,
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", nil),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: validatorutlis.ErrParseRequestBody,
+			},
+		},
+		{
+			name:               "when failed create user on validation failed",
+			before:             nil,
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "", "phoneNumber": "", "password": ""}`)),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Validation failed",
+				ValidationErrors: &[]struct {
+					Field   string `json:"field"`
+					Message string `json:"message"`
+				}{
+					{
+						Field:   "fullName",
+						Message: "full name must be between 3 and 60 characters",
+					},
+					{
+						Field:   "phoneNumber",
+						Message: "phone number must be between 10 and 13 characters and start with +62",
+					},
+					{
+						Field:   "password",
+						Message: "password must be between 6 and 64 characters",
+					},
+				},
+			},
+		},
+		{
+			name:               "when failed create user on invalid password format",
+			before:             nil,
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "Hansen", "phoneNumber": "+628111814032", "password": "password"}`)),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Validation failed",
+				ValidationErrors: &[]struct {
+					Field   string `json:"field"`
+					Message string `json:"message"`
+				}{
+					{
+						Field:   "password",
+						Message: "password must have at least 1 capital, 1 number, and 1 special character",
+					},
+				},
+			},
+		},
+		{
+			name: "when failed create user on error GeneratePasswordSalt",
+			before: func() {
+				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+					return "", errors.New("error on GeneratePasswordSalt")
+				})
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "Hansen", "phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Error creating user: failed to generate password salt",
+			},
+		},
+		{
+			name: "when failed create user on error HashPassword",
+			before: func() {
+				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+					return "password_salt", nil
+				})
+
+				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+					return "", errors.New("error on HashPassword")
+				})
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "Hansen", "phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Error creating user: failed to hash password",
+			},
+		},
+		{
+			name: "when failed create user on error conflict phone number CreateUserInput repo function",
+			before: func() {
+				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+					return "password_salt", nil
+				})
+
+				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+					return "password_hash", nil
+				})
+
+				mockRepo.
+					EXPECT().
+					CreateUser(
+						context.Background(),
+						repository.CreateUserInput{
+							FullName:     "Hansen",
+							PhoneNumber:  "+628111814032",
+							PasswordHash: "password_hash",
+							PasswordSalt: "password_salt",
+						},
+					).
+					Return(repository.ErrDuplicateUserPhoneNumber).
+					Times(1)
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "Hansen", "phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusConflict,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Error creating user: Phone Number is already registered",
+			},
+		},
+		{
+			name: "when failed create user on error CreateUserInput repo function",
+			before: func() {
+				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+					return "password_salt", nil
+				})
+
+				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+					return "password_hash", nil
+				})
+
+				mockRepo.
+					EXPECT().
+					CreateUser(
+						context.Background(),
+						repository.CreateUserInput{
+							FullName:     "Hansen",
+							PhoneNumber:  "+628111814032",
+							PasswordHash: "password_hash",
+							PasswordSalt: "password_salt",
+						},
+					).
+					Return(errors.New("error on CreateUserInput")).
+					Times(1)
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "Hansen", "phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Error creating user: database error",
+			},
+		},
+		{
+			name: "when failed create user on error GetUserIdByPhoneNumber repo function",
+			before: func() {
+				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+					return "password_salt", nil
+				})
+
+				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+					return "password_hash", nil
+				})
+
+				mockRepo.
+					EXPECT().
+					CreateUser(
+						context.Background(),
+						repository.CreateUserInput{
+							FullName:     "Hansen",
+							PhoneNumber:  "+628111814032",
+							PasswordHash: "password_hash",
+							PasswordSalt: "password_salt",
+						},
+					).
+					Return(nil).
+					Times(1)
+
+				mockRepo.
+					EXPECT().
+					GetUserIdByPhoneNumber(
+						context.Background(),
+						"+628111814032",
+					).
+					Return(uuid.Nil, errors.New("error on GetUserIdByPhoneNumber")).
+					Times(1)
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "Hansen", "phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Error getting user ID: database error",
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.mock != nil {
-				tc.mock()
+			if tc.before != nil {
+				tc.before()
 			}
 
 			e := echo.New()
@@ -581,4 +815,8 @@ func Test_CreateUser(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_UserLogin(t *testing.T) {
+
 }

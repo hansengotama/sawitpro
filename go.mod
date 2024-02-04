@@ -1,4 +1,4 @@
-module github.com/SawitProRecruitment/UserService
+module github.com/hansengotama/sawitpro
 
 go 1.19
 
@@ -10,12 +10,14 @@ require (
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/lib/pq v1.10.9
 	github.com/oapi-codegen/runtime v1.1.1
+	github.com/procodr/monkey v0.0.0-20221102224215-28eb53c3a645
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.17.0
 
 )
 
 require (
+	bou.ke/monkey v1.0.2 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
