@@ -14,7 +14,6 @@ func main() {
 	e := echo.New()
 
 	var server generated.ServerInterface = newServer()
-
 	generated.RegisterHandlers(e, server)
 	e.Logger.Fatal(e.Start(":1323"))
 }

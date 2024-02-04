@@ -17,6 +17,16 @@ init: generate
 
 test:
 	go test -short -coverprofile coverage.out -v ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Opening coverage report..."
+	@$(MAKE) open-coverage
+
+open-coverage:
+ifeq ($(shell uname),Darwin)
+	open coverage.html
+else
+	xdg-open coverage.html
+endif
 
 generate: generated generate_mocks
 

@@ -15,40 +15,216 @@ info:
   license:
     name: MIT
 servers:
-  - url: http://localhost
+  - url: http://localhost:8080
 paths:
-  /hello:
+  /users:
     get:
-      summary: This is just a test endpoint to get you started. Please delete this endpoint.
-      operationId: hello
+      summary: Endpoint to retrieve user profile
+      operationId: getUser
       parameters:
-        - name: id
-          in: query
+        - name: Authorization
+          in: header
           required: true
           schema:
-            type: integer
+            type: string
+          example: "Bearer your_access_token"
       responses:
         '200':
-          description: Test return
+          description: Successful Profile Retrieval
           content:
-            application/json:    
+            application/json:
               schema:
-                $ref: "#/components/schemas/HelloResponse"
-        '404':
-          description: Not found
+                $ref: "#/components/schemas/GetUserResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Endpoint to create user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phoneNumber:
+                  type: string
+                  minLength: 10
+                  maxLength: 13
+                  pattern: "^\\+62\\d+"
+                  description: "Must start with +62"
+                fullName:
+                  type: string
+                  minLength: 3
+                  maxLength: 60
+                password:
+                  type: string
+                  minLength: 6
+                  maxLength: 64
+                  pattern: "^(?=.*[A-Z])(?=.*\\d)(?=.*\\W).*$"
+                  description: "Must have at least 1 capital, 1 number, and 1 special character"
+              required:
+                - phoneNumber
+                - fullName
+                - password
+              example:
+                phoneNumber: "+621234567890"
+                fullName: "John Doe"
+                password: "Passw0rd!"
+      responses:
+        '201':
+          description: Success Register User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedUserResponse"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '409':
+          description: Conflict - Phone Number Already Exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      summary: Endpoint to update user profile
+      operationId: updateUser
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+          example: "Bearer your_access_token"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phoneNumber:
+                  type: string
+                  minLength: 10
+                  maxLength: 13
+                  pattern: "^\\+62\\d+"  # Must start with "+62"
+                fullName:
+                  type: string
+                  minLength: 3
+                  maxLength: 60
+              anyOf:
+                - required:
+                    - phoneNumber
+                - required:
+                    - fullName
+              example:
+                phoneNumber: "+621234567890"
+                fullName: "New Name"
+      responses:
+        '200':
+          description: Successful Profile Update
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '409':
+          description: Conflict - Phone Number Already Exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /users/login:
+    post:
+      summary: Endpoint for user login
+      operationId: userLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phoneNumber:
+                  type: string
+                  minLength: 10
+                  maxLength: 13
+                  pattern: "^\\+62\\d+"
+                  description: "Must start with +62"
+                password:
+                  type: string
+                  minLength: 6
+                  maxLength: 64
+                  pattern: "^(?=.*[A-Z])(?=.*\\d)(?=.*\\W).*$"
+                  description: "Must have at least 1 capital, 1 number, and 1 special character"
+              required:
+                - phoneNumber
+                - password
+              example:
+                phoneNumber: "+621234567890"
+                password: "Passw0rd!"
+      responses:
+        '200':
+          description: Successful Login
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserLoginResponse"
+        '400':
+          description: Bad Request
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
-    HelloResponse:
+    GetUserResponse:
       type: object
       required:
-        - message
+        - fullName
+        - phoneNumber
       properties:
-        message:
+        fullName:
           type: string
+          description: Name of the user.
+        phoneNumber:
+          type: string
+          description: Phone number of the user.
+    CreatedUserResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the registered user.
+    UserLoginResponse:
+      type: object
+      required:
+        - userId
+        - accessToken
+      properties:
+        userId:
+          type: string
+          description: Unique identifier for the logged-in user.
+        accessToken:
+          type: string
+          description: JSON Web Token (JWT) with algorithm RS256.
     ErrorResponse:
       type: object
       required:
@@ -56,3 +232,16 @@ components:
       properties:
         message:
           type: string
+          description: A brief description of the encountered error.
+        validation_errors:
+          type: array
+          items:
+            type: object
+            required:
+              - field
+              - message
+            properties:
+              field:
+                type: string
+              message:
+                type: string

@@ -1,4 +1,3 @@
-// This file contains the repository implementation layer.
 package repository
 
 import (
@@ -20,6 +19,10 @@ func NewRepository(opts NewRepositoryOptions) *Repository {
 	if err != nil {
 		panic(err)
 	}
+
+	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(10)
+
 	return &Repository{
 		Db: db,
 	}

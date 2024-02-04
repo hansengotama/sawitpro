@@ -1,10 +1,41 @@
-// This file contains types that are used in the repository layer.
 package repository
 
-type GetTestByIdInput struct {
-	Id string
+import (
+	"github.com/google/uuid"
+	"time"
+)
+
+type GetUserWithPasswordByPhoneNumberOutput struct {
+	Id           uuid.UUID
+	PasswordHash string
+	PasswordSalt string
 }
 
-type GetTestByIdOutput struct {
-	Name string
+type GetUserByUserIdOutput struct {
+	FullName    string
+	PhoneNumber string
+}
+
+type UpdateUserByUserIdInput struct {
+	UserId      uuid.UUID
+	FullName    *string
+	PhoneNumber *string
+}
+
+type UserLoginInput struct {
+	UserId       uuid.UUID
+	Token        string
+	ExpirationAt time.Time
+}
+
+type CreateUserInput struct {
+	FullName     string
+	PhoneNumber  string
+	PasswordHash string
+	PasswordSalt string
+}
+
+type GetAccessTokenByTokenOutput struct {
+	UserId       uuid.UUID
+	ExpirationAt time.Time
 }
