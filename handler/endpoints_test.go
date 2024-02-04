@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hansengotama/sawitpro/generated"
 	"github.com/hansengotama/sawitpro/repository"
+	"github.com/hansengotama/sawitpro/utlis/jwtutils"
 	"github.com/hansengotama/sawitpro/utlis/passwordutils"
 	"github.com/hansengotama/sawitpro/utlis/validatorutlis"
 	"github.com/labstack/echo/v4"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -33,14 +35,14 @@ func Test_GetUser(t *testing.T) {
 
 	testCases := []struct {
 		name                string
-		mock                func()
+		before              func()
 		authorizationHeader string
 		expectedStatusCode  int
 		expectedResponse    any
 	}{
 		{
 			name: "when successfully get user",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -68,7 +70,7 @@ func Test_GetUser(t *testing.T) {
 		},
 		{
 			name:                "when failed get user on invalid authorization header",
-			mock:                nil,
+			before:              nil,
 			authorizationHeader: "invalid",
 			expectedStatusCode:  http.StatusForbidden,
 			expectedResponse: generated.ErrorResponse{
@@ -77,7 +79,7 @@ func Test_GetUser(t *testing.T) {
 		},
 		{
 			name: "when failed get user on GetAccessTokenByToken repo function",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -92,7 +94,7 @@ func Test_GetUser(t *testing.T) {
 		},
 		{
 			name: "when failed get user on token already expired",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -110,7 +112,7 @@ func Test_GetUser(t *testing.T) {
 		},
 		{
 			name: "when failed get user on GetUserByUserId repo function",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -132,8 +134,8 @@ func Test_GetUser(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.mock != nil {
-				tc.mock()
+			if tc.before != nil {
+				tc.before()
 			}
 
 			e := echo.New()
@@ -188,7 +190,7 @@ func Test_UpdateUser(t *testing.T) {
 
 	testCases := []struct {
 		name                string
-		mock                func()
+		before              func()
 		httpReq             *http.Request
 		authorizationHeader string
 		expectedStatusCode  int
@@ -196,7 +198,7 @@ func Test_UpdateUser(t *testing.T) {
 	}{
 		{
 			name: "when successfully update user full name and phone number",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -223,7 +225,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when successfully update user full name",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -249,7 +251,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when successfully update user phone number",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -275,7 +277,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name:                "when failed get user on invalid authorization header",
-			mock:                nil,
+			before:              nil,
 			httpReq:             httptest.NewRequest(http.MethodPatch, "/users", nil),
 			authorizationHeader: "invalid",
 			expectedStatusCode:  http.StatusForbidden,
@@ -285,7 +287,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on GetAccessTokenByToken repo function",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -301,7 +303,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on token already expired",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -320,7 +322,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on read request body",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -339,7 +341,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on parse request body",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -358,7 +360,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on empty request body",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -377,7 +379,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on error validate fullName",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -405,7 +407,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on error validate phoneNumber",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -433,7 +435,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on error conflict phone number UpdateUserByUserId repo function",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -461,7 +463,7 @@ func Test_UpdateUser(t *testing.T) {
 		},
 		{
 			name: "when failed update user on error UpdateUserByUserId repo function",
-			mock: func() {
+			before: func() {
 				mockRepo.
 					EXPECT().
 					GetAccessTokenByToken(context.Background(), "valid_token").
@@ -491,8 +493,8 @@ func Test_UpdateUser(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.mock != nil {
-				tc.mock()
+			if tc.before != nil {
+				tc.before()
 			}
 
 			e := echo.New()
@@ -528,19 +530,6 @@ func Test_CreateUser(t *testing.T) {
 		Repository: mockRepo,
 	})
 
-	var patchGeneratePasswordSalt *monkey.PatchGuard
-	var patchHashPassword *monkey.PatchGuard
-
-	defer func() {
-		if patchGeneratePasswordSalt != nil {
-			patchGeneratePasswordSalt.Unpatch()
-		}
-
-		if patchHashPassword != nil {
-			patchGeneratePasswordSalt.Unpatch()
-		}
-	}()
-
 	userId := uuid.New()
 
 	testCases := []struct {
@@ -553,11 +542,11 @@ func Test_CreateUser(t *testing.T) {
 		{
 			name: "when successfully create user",
 			before: func() {
-				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+				monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
 					return "password_salt", nil
 				})
 
-				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+				monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
 					return "password_hash", nil
 				})
 
@@ -572,8 +561,7 @@ func Test_CreateUser(t *testing.T) {
 							PasswordSalt: "password_salt",
 						},
 					).
-					Return(nil).
-					Times(1)
+					Return(nil)
 
 				mockRepo.
 					EXPECT().
@@ -655,8 +643,12 @@ func Test_CreateUser(t *testing.T) {
 		{
 			name: "when failed create user on error GeneratePasswordSalt",
 			before: func() {
-				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+				monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
 					return "", errors.New("error on GeneratePasswordSalt")
+				})
+
+				monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+					return "password_hash", nil
 				})
 			},
 			httpReq:            httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"fullName": "Hansen", "phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
@@ -668,11 +660,11 @@ func Test_CreateUser(t *testing.T) {
 		{
 			name: "when failed create user on error HashPassword",
 			before: func() {
-				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+				monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
 					return "password_salt", nil
 				})
 
-				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+				monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
 					return "", errors.New("error on HashPassword")
 				})
 			},
@@ -685,11 +677,11 @@ func Test_CreateUser(t *testing.T) {
 		{
 			name: "when failed create user on error conflict phone number CreateUserInput repo function",
 			before: func() {
-				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+				monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
 					return "password_salt", nil
 				})
 
-				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+				monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
 					return "password_hash", nil
 				})
 
@@ -716,11 +708,11 @@ func Test_CreateUser(t *testing.T) {
 		{
 			name: "when failed create user on error CreateUserInput repo function",
 			before: func() {
-				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+				monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
 					return "password_salt", nil
 				})
 
-				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+				monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
 					return "password_hash", nil
 				})
 
@@ -747,11 +739,11 @@ func Test_CreateUser(t *testing.T) {
 		{
 			name: "when failed create user on error GetUserIdByPhoneNumber repo function",
 			before: func() {
-				patchGeneratePasswordSalt = monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
+				monkey.Patch(passwordutils.GeneratePasswordSalt, func() (string, error) {
 					return "password_salt", nil
 				})
 
-				patchHashPassword = monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
+				monkey.Patch(passwordutils.HashPassword, func(password, salt string) (string, error) {
 					return "password_hash", nil
 				})
 
@@ -818,5 +810,244 @@ func Test_CreateUser(t *testing.T) {
 }
 
 func Test_UserLogin(t *testing.T) {
+	err := os.Setenv("JWT_SECRET_KEY", "dummy_key")
+	assert.NoError(t, err)
 
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := repository.NewMockRepositoryInterface(ctrl)
+	s := NewServer(NewServerOptions{
+		Repository: mockRepo,
+	})
+
+	userId := uuid.New()
+
+	testCases := []struct {
+		name               string
+		before             func()
+		httpReq            *http.Request
+		expectedStatusCode int
+		expectedResponse   any
+	}{
+		{
+			name: "when successfully user login",
+			before: func() {
+				mockRepo.
+					EXPECT().
+					GetUserWithPasswordByPhoneNumber(context.Background(), "+628111814032").
+					Return(repository.GetUserWithPasswordByPhoneNumberOutput{
+						Id:           userId,
+						PasswordHash: "$2a$10$yNs2OllfxTEiHjTcQq73me1./CwYltUSEEp5571.4Le3SfuaY0SMm",
+						PasswordSalt: "password_salt",
+					}, nil).
+					Times(1)
+
+				monkey.Patch(jwtutils.GenerateJWT, func(input jwtutils.GenerateJwtInput) (string, error) {
+					return "jwt_token", nil
+				})
+
+				mockRepo.
+					EXPECT().
+					UserLogin(context.Background(), gomock.Any()).
+					Return(nil).
+					Times(1)
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusOK,
+			expectedResponse: generated.UserLoginResponse{
+				AccessToken: "Bearer jwt_token",
+				UserId:      userId.String(),
+			},
+		},
+		{
+			name:               "when failed user login on read request body",
+			before:             nil,
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", &errorReaderCloser{}),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: validatorutlis.ErrReadRequestBody,
+			},
+		},
+		{
+			name:               "when failed user login on parse request body",
+			before:             nil,
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", nil),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: validatorutlis.ErrParseRequestBody,
+			},
+		},
+		{
+			name:               "when failed user login on validate",
+			before:             nil,
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"phoneNumber": "", "password": ""}`)),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Validation failed",
+				ValidationErrors: &[]struct {
+					Field   string `json:"field"`
+					Message string `json:"message"`
+				}{
+					{
+						Field:   "phoneNumber",
+						Message: "phone number must be between 10 and 13 characters and start with +62",
+					},
+					{
+						Field:   "password",
+						Message: "password must be between 6 and 64 characters",
+					},
+				},
+			},
+		},
+		{
+			name:               "when failed user login on invalid password format",
+			before:             nil,
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"phoneNumber": "+628111814032", "password": "password"}`)),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Validation failed",
+				ValidationErrors: &[]struct {
+					Field   string `json:"field"`
+					Message string `json:"message"`
+				}{
+					{
+						Field:   "password",
+						Message: "password must have at least 1 capital, 1 number, and 1 special character",
+					},
+				},
+			},
+		},
+		{
+			name: "when failed user login on error not found GetUserWithPasswordByPhoneNumber repo function",
+			before: func() {
+				mockRepo.
+					EXPECT().
+					GetUserWithPasswordByPhoneNumber(context.Background(), "+628111814032").
+					Return(repository.GetUserWithPasswordByPhoneNumberOutput{}, repository.ErrRowNotFound).
+					Times(1)
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusNotFound,
+			expectedResponse: generated.ErrorResponse{
+				Message: "User not found",
+			},
+		},
+		{
+			name: "when failed user login on error GetUserWithPasswordByPhoneNumber repo function",
+			before: func() {
+				mockRepo.
+					EXPECT().
+					GetUserWithPasswordByPhoneNumber(context.Background(), "+628111814032").
+					Return(repository.GetUserWithPasswordByPhoneNumberOutput{}, errors.New("error on error GetUserWithPasswordByPhoneNumber")).
+					Times(1)
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Error login: database error",
+			},
+		},
+		{
+			name: "when failed user login on incorrect password",
+			before: func() {
+				mockRepo.
+					EXPECT().
+					GetUserWithPasswordByPhoneNumber(context.Background(), "+628111814032").
+					Return(repository.GetUserWithPasswordByPhoneNumberOutput{
+						Id:           userId,
+						PasswordHash: "$2a$10$yNs2OllfxTEiHjTcQq73me1",
+						PasswordSalt: "password_salt",
+					}, nil).
+					Times(1)
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Incorrect password",
+			},
+		},
+		{
+			name: "when failed user login on generate jwt",
+			before: func() {
+				mockRepo.
+					EXPECT().
+					GetUserWithPasswordByPhoneNumber(context.Background(), "+628111814032").
+					Return(repository.GetUserWithPasswordByPhoneNumberOutput{
+						Id:           userId,
+						PasswordHash: "$2a$10$yNs2OllfxTEiHjTcQq73me1./CwYltUSEEp5571.4Le3SfuaY0SMm",
+						PasswordSalt: "password_salt",
+					}, nil).
+					Times(1)
+
+				monkey.Patch(jwtutils.GenerateJWT, func(input jwtutils.GenerateJwtInput) (string, error) {
+					return "", errors.New("error on GenerateJWT")
+				})
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Error generating JWT",
+			},
+		},
+		{
+			name: "when failed user login on error UserLogin repo function",
+			before: func() {
+				mockRepo.
+					EXPECT().
+					GetUserWithPasswordByPhoneNumber(context.Background(), "+628111814032").
+					Return(repository.GetUserWithPasswordByPhoneNumberOutput{
+						Id:           userId,
+						PasswordHash: "$2a$10$yNs2OllfxTEiHjTcQq73me1./CwYltUSEEp5571.4Le3SfuaY0SMm",
+						PasswordSalt: "password_salt",
+					}, nil).
+					Times(1)
+
+				monkey.Patch(jwtutils.GenerateJWT, func(input jwtutils.GenerateJwtInput) (string, error) {
+					return "jwt_token", nil
+				})
+
+				mockRepo.
+					EXPECT().
+					UserLogin(context.Background(), gomock.Any()).
+					Return(errors.New("error on UserLogin")).
+					Times(1)
+			},
+			httpReq:            httptest.NewRequest(http.MethodPost, "/users/login", strings.NewReader(`{"phoneNumber": "+628111814032", "password": "p4ssw@rD"}`)),
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse: generated.ErrorResponse{
+				Message: "Error login: database error",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.before != nil {
+				tc.before()
+			}
+
+			e := echo.New()
+			req := tc.httpReq
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+
+			err := s.UserLogin(c)
+			assert.NoError(t, err)
+
+			assert.Equal(t, tc.expectedStatusCode, rec.Code)
+
+			switch eRes := tc.expectedResponse.(type) {
+			case generated.UserLoginResponse:
+				var response generated.UserLoginResponse
+				err = json.Unmarshal(rec.Body.Bytes(), &response)
+				assert.Equal(t, eRes, response)
+			case generated.ErrorResponse:
+				var response generated.ErrorResponse
+				err = json.Unmarshal(rec.Body.Bytes(), &response)
+				assert.Equal(t, eRes, response)
+			}
+		})
+	}
 }

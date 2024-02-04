@@ -41,6 +41,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       summary: Endpoint to create user
       operationId: createUser
@@ -90,6 +96,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         '409':
           description: Conflict - Phone Number Already Exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: Internal Server Error
           content:
             application/json:
               schema:
@@ -149,6 +161,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /users/login:
     post:
       summary: Endpoint for user login
@@ -187,6 +205,18 @@ paths:
                 $ref: "#/components/schemas/UserLoginResponse"
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '404':
+          description: User Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: Internal Server Error
           content:
             application/json:
               schema:

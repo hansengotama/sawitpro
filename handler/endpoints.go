@@ -364,7 +364,7 @@ func (s *Server) UserLogin(ctx echo.Context) error {
 
 	token, err := jwtutils.GenerateJWT(generateJWTInput)
 	if err != nil {
-		return ctx.JSON(http.StatusBadRequest, generated.ErrorResponse{
+		return ctx.JSON(http.StatusInternalServerError, generated.ErrorResponse{
 			Message: "Error generating JWT",
 		})
 	}
@@ -375,7 +375,7 @@ func (s *Server) UserLogin(ctx echo.Context) error {
 		ExpirationAt: generateJWTInput.ExpirationAt,
 	})
 	if err != nil {
-		return ctx.JSON(http.StatusBadRequest, generated.ErrorResponse{
+		return ctx.JSON(http.StatusInternalServerError, generated.ErrorResponse{
 			Message: "Error login: database error",
 		})
 	}
